@@ -62,6 +62,9 @@ vcpkg_installed/
 
 # debug information files
 *.dwo
+# Application runtime files
+students.dat
+report.txt
 
 # test output & cache
 Testing/
