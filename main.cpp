@@ -3,32 +3,38 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 struct TZap {
-    char FIO[30];       // Фамилия и инициалы
+    char FIO[60];       // Фамилия и инициалы (увеличено для UTF-8)
     int god;            // Год рождения (1950..2010)
     char grupa[15];     // Номер группы
-    int fiz;            // Оценка по физике 
-    int mat;            // Оценка по математике 
-    int inf;            // Оценка по информатике 
-    int xim;            // Оценка по химии 
+    int fiz;            // Оценка по физике
+    int mat;            // Оценка по математике
+    int inf;            // Оценка по информатике
+    int xim;            // Оценка по химии
     double s_b;         // Средний балл
 };
 
 void Out(TZap z, FILE *Ft);
 void OutHeader(FILE *Ft);
 void InputZap(TZap *z);
-int CheckBukvaVGD(char c);
+int CheckBukvaVGD(const char* fio);
 
-// функции защиты ввода
+// Функции защиты ввода
 int InputInt(const char* prompt, int minVal, int maxVal);
 void InputFIO(const char* prompt, char* dest, int maxLen);
 void InputGroup(const char* prompt, char* dest);
 
 int main() {
-SetConsoleOutputCP (65001);
-SetConsoleCP(65001);
+#ifdef _WIN32
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+#endif
+
     int kod, sub_kod, confirm;
     TZap currentZap;
     char target_grupa[15];
@@ -165,7 +171,7 @@ SetConsoleCP(65001);
 
             int foundCount = 0;
             while (fread(&currentZap, size, 1, Fz) == 1) {
-                if (strcmp(currentZap.grupa, target_grupa) == 0 && CheckBukvaVGD(currentZap.FIO[0])) {
+                if (strcmp(currentZap.grupa, target_grupa) == 0 && CheckBukvaVGD(currentZap.FIO)) {
                     Out(currentZap, Ft);
                     foundCount++;
                 }
@@ -224,7 +230,7 @@ SetConsoleCP(65001);
             delete[] mas_Z;
             break;
         }
-        // ---------------- 0. ВЫХОД ----------------
+
         case 0:
             fclose(Ft);
             printf("\nРабота завершена. Все результаты сохранены в файл %s\n", File_Rez);
@@ -244,13 +250,12 @@ int InputInt(const char* prompt, int minVal, int maxVal) {
 
         if (strchr(buf, '\n') == NULL) {
             int ch;
-            while ((ch = getchar())!='\n' && ch != EOF);
-            // этот цикл просто чистит символы за лимитом, т.к. getchar() не возвращает символы
+            while ((ch = getchar()) != '\n' && ch != EOF);
             printf(" [Ошибка]: Слишком длинный ввод! Повторите попытку.\n");
             continue;
         }
 
-        buf[strcspn(buf, "\n")]='\0';
+        buf[strcspn(buf, "\n")] = '\0';
 
         int i = 0;
         while (buf[i] == ' ' || buf[i] == '\t') i++;
@@ -266,7 +271,7 @@ int InputInt(const char* prompt, int minVal, int maxVal) {
             printf(" [Ошибка]: Введите цифры, а не просто знак!\n");
             continue;
         }
-        
+
         int valid = 1;
         int digitCount = 0;
         for (; buf[i] != '\0'; i++) {
@@ -278,7 +283,6 @@ int InputInt(const char* prompt, int minVal, int maxVal) {
         }
 
         if (!valid) {
-            // для компилятора любое ненулевое значение истинно
             printf(" [Ошибка]: Недопустимые символы (буквы, ';', пробелы)! Введите целое число.\n");
             continue;
         }
@@ -289,7 +293,6 @@ int InputInt(const char* prompt, int minVal, int maxVal) {
         }
 
         long val = strtol(buf + start, NULL, 10);
-        //buf+start значит сдвинутся от начала на start элементов
         if (val < minVal || val > maxVal) {
             printf(" [Ошибка]: Число вне диапазона! Введите значение от %d до %d.\n", minVal, maxVal);
             continue;
@@ -311,101 +314,85 @@ void InputFIO(const char* prompt, char* dest, int maxLen) {
         if (strchr(buf, '\n') == NULL) {
             int ch;
             while ((ch = getchar()) != '\n' && ch != EOF);
-            printf(" [Ошибка]: Слишком длинная строка!\n");
-            continue;
-        }
-
-        buf[strcspn(buf, "\n")] = '\0';
-
-        int start = 0;
-        while (buf[start] == ' ' || buf[start] == '\t') start++;
-
-        int len = (int)strlen(buf + start);
-        if (len < 2) {
-            printf(" [Ошибка]: ФИО слишком короткое! (например, Война Д.В.).\n");
-            continue;
-        }
-        if (len >= maxLen) {
-            printf(" [Ошибка]: ФИО слишком длинное (максимум %d символов)!\n", maxLen - 1);
-            continue;
-        }
-
-        unsigned char first = (unsigned char)buf[start];
-        int firstIsLetter = (first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') ||
-                            (first >= 192 && first <= 255) || first == 168 || first == 184;
-        if (!firstIsLetter) {
-            printf(" [Ошибка]: Фамилия должна начинаться с буквы!\n");
-            continue;
-        }
-
-        int valid = 1;
-        for (int i = start; buf[i] != '\0'; i++) {
-            unsigned char c = (unsigned char)buf[i];
-            int isRus = (c >= 192 && c <= 255) || c == 168 || c == 184;
-            int isEng = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-            int isAllowedPunct = (c == ' ' || c == '.' || c == '-');
-
-            if (!isRus && !isEng && !isAllowedPunct) {
-                valid = 0;
-                break;
-            }
-        }
-
-        if (!valid) {
-            printf(" [Ошибка]: В ФИО запрещены цифры и спецсимволы (';', ',', '/' и т.д.)!\n");
-            continue;
-        }
-        strcpy(dest, buf + start);
-        return;
-    }
+printf(" [Ошибка]: Слишком длинная строка!\n");
+continue;
 }
-
+buf[strcspn(buf, "\n")] = '\0';
+int start = 0;
+while (buf[start] == ' ' || buf[start] == '\t') start++;
+int len = (int)strlen(buf + start);
+if (len < 2) {
+printf(" [Ошибка]: ФИО слишком короткое! (например, Война Д.В.).\n");
+continue;
+}
+if (len >= maxLen) {
+printf(" [Ошибка]: ФИО слишком длинное!\n");
+continue;
+}
+unsigned char first = (unsigned char)buf[start];
+int firstIsLetter = (first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || (first >= 128);
+if (!firstIsLetter) {
+printf(" [Ошибка]: Фамилия должна начинаться с буквы!\n");
+continue;
+}
+int valid = 1;
+for (int i = start; buf[i] != '\0'; i++) {
+unsigned char c = (unsigned char)buf[i];
+int isUtf8 = (c >= 128);
+int isEng = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+int isAllowedPunct = (c == ' ' || c == '.' || c == '-');
+if (!isUtf8 && !isEng && !isAllowedPunct) {
+valid = 0;
+break;
+}
+}
+if (!valid) {
+printf(" [Ошибка]: В ФИО запрещены цифры и спецсимволы (';', ',', '/' и т.д.)!\n");
+continue;
+}
+strcpy(dest, buf + start);
+return;
+}
+}
 void InputGroup(const char* prompt, char* dest) {
-    int grpNum = InputInt(prompt, 1, 1000000);
-    sprintf(dest, "%d", grpNum);
+int grpNum = InputInt(prompt, 1, 1000000);
+sprintf(dest, "%d", grpNum);
 }
-
 void InputZap(TZap *z) {
-    printf("\n --- Ввод анкетных данных студента ---\n");
-    InputFIO(" Фамилия И.О. (например, Война Д.В.): ", (*z).FIO, sizeof((*z).FIO));
-    (*z).god = InputInt(" Год рождения (1950..2010): ", 1950, 2010);
-    InputGroup(" Номер группы (число 1..1000000): ", (*z).grupa);
-
-    printf(" --- Ввод оценок за семестр (от 1 до 10) ---\n");
-    (*z).fiz = InputInt("   Физика (1..10): ", 1, 10);
-    (*z).mat = InputInt("   Математика (1..10): ", 1, 10);
-    (*z).inf = InputInt("   Информатика (1..10): ", 1, 10);
-    (*z).xim = InputInt("   Химия (1..10): ", 1, 10);
-
-    (*z).s_b = ((*z).fiz + (*z).mat + (*z).inf + (*z).xim) / 4.0;
+printf("\n --- Ввод анкетных данных студента ---\n");
+InputFIO(" Фамилия И.О. (например, Война Д.В.): ", (*z).FIO, sizeof((*z).FIO));
+(*z).god = InputInt(" Год рождения (1950..2010): ", 1950, 2010);
+InputGroup(" Номер группы (число 1..1000000): ", (*z).grupa);
+printf(" --- Ввод оценок за семестр (от 1 до 10) ---\n");
+(*z).fiz = InputInt("   Физика (1..10): ", 1, 10);
+(*z).mat = InputInt("   Математика (1..10): ", 1, 10);
+(*z).inf = InputInt("   Информатика (1..10): ", 1, 10);
+(*z).xim = InputInt("   Химия (1..10): ", 1, 10);
+(*z).s_b = ((*z).fiz + (*z).mat + (*z).inf + (*z).xim) / 4.0;
 }
-
 void OutHeader(FILE *Ft) {
-    printf("---------------------------------------------------------------------------\n");
-    printf("| %-20s | %-4s | %-8s | %-3s | %-3s | %-3s | %-3s | %-6s |\n",
-           "Фамилия И.О.        ", "Год ", "Группа  ", "Физ", "Мат", "Инф", "Хим", "Ср.Б. ");
-    printf("---------------------------------------------------------------------------\n");
-
-    fprintf(Ft, "---------------------------------------------------------------------------\n");
-    fprintf(Ft, "| %-20s | %-4s | %-8s | %-3s | %-3s | %-3s | %-3s | %-6s |\n",
-            "Фамилия И.О.        ", "Год ", "Группа  ", "Физ", "Мат", "Инф", "Хим", "Ср.Б. ");
-    fprintf(Ft, "---------------------------------------------------------------------------\n");
+printf("---------------------------------------------------------------------------\n");
+printf("| %-20s | %-4s | %-8s | %-3s | %-3s | %-3s | %-3s | %-6s |\n",
+"Фамилия И.О.        ", "Год ", "Группа  ", "Физ", "Мат", "Инф", "Хим", "Ср.Б. ");
+printf("---------------------------------------------------------------------------\n");
+fprintf(Ft, "---------------------------------------------------------------------------\n");
+fprintf(Ft, "| %-20s | %-4s | %-8s | %-3s | %-3s | %-3s | %-3s | %-6s |\n",
+"Фамилия И.О.        ", "Год ", "Группа  ", "Физ", "Мат", "Инф", "Хим", "Ср.Б. ");
+fprintf(Ft, "---------------------------------------------------------------------------\n");
 }
-
 void Out(TZap z, FILE *Ft) {
-    printf("| %-20s | %-4d | %-8s | %-3d | %-3d | %-3d | %-3d | %6.3lf |\n",
-           z.FIO, z.god, z.grupa, z.fiz, z.mat, z.inf, z.xim, z.s_b);
-    fprintf(Ft, "| %-20s | %-4d | %-8s | %-3d | %-3d | %-3d | %-3d | %6.3lf |\n",
-            z.FIO, z.god, z.grupa, z.fiz, z.mat, z.inf, z.xim, z.s_b);
+printf("| %-20s | %-4d | %-8s | %-3d | %-3d | %-3d | %-3d | %6.3lf |\n",
+z.FIO, z.god, z.grupa, z.fiz, z.mat, z.inf, z.xim, z.s_b);
+fprintf(Ft, "| %-20s | %-4d | %-8s | %-3d | %-3d | %-3d | %-3d | %6.3lf |\n",
+z.FIO, z.god, z.grupa, z.fiz, z.mat, z.inf, z.xim, z.s_b);
 }
-
-int CheckBukvaVGD(char c) {
-    unsigned char uc = (unsigned char)c;
-    // Проверка по кодам для В(192/224), Г(193/225), Д(194/226) и латиницы
-    if (uc == 192 || uc == 224 || uc == 'B' || uc == 'b' || uc == 'V'||  uc == 'v' || // В
-        uc == 193 || uc == 225 || uc == 'G'||  uc == 'g' ||                           // Г
-        uc == 194 || uc == 226 || uc == 'D' || uc == 'd') {                           // Д
-        return 1;
-    }
-    return 0;
+int CheckBukvaVGD(const char* fio) {
+if (strncmp(fio, "В", 2) == 0 || strncmp(fio, "в", 2) == 0 ||
+strncmp(fio, "Г", 2) == 0 || strncmp(fio, "г", 2) == 0 ||
+strncmp(fio, "Д", 2) == 0 || strncmp(fio, "д", 2) == 0 ||
+fio[0] == 'V' || fio[0] == 'v' || fio[0] == 'B' || fio[0] == 'b' ||
+fio[0] == 'G' || fio[0] == 'g' || fio[0] == 'D' || fio[0] == 'd') {
+return 1;
+}
+return 0;
 }
