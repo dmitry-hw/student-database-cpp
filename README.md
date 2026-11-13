@@ -41,3 +41,15 @@ g++ main.cpp -o students_db
 During execution, the program creates two files in its working directory:
 * `students.dat` — binary database file storing `StudentRecord` structures.
 * `report.txt` — plain text report logging all tables and search results from the session.
+
+## Screenshots
+
+### Main Menu
+<img width="879" height="210" alt="image" src="https://github.com/user-attachments/assets/0ec4b499-bfdc-4a0c-990b-139782fc3b8c" />
+
+### Viewing & Sorting Records
+<img width="818" height="184" alt="image" src="https://github.com/user-attachments/assets/1596a512-9b54-4f5f-b902-0e5715872989" />
+<img width="849" height="189" alt="image" src="https://github.com/user-attachments/assets/fb843a25-d9db-4baa-a52f-322dd69b5ec6" />
+
+
+
